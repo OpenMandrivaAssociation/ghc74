@@ -1,7 +1,7 @@
 #!/bin/bash
 # Package adaptation: STAGE is the build root, GMP_PREFIX is
 # %{_libdir}/gmp612 when this hop still uses the private GMP, and
-# HOST_GCC is %{_libdir}/ghc-VER/bin/host-gcc. Install is -j1.
+# The C compiler is the bare name host-gcc on PATH. Install is -j1.
 # Build GHC 7.4.2 from its sources with the in-chain GHC 6.12.3.
 # Registerised, native code generator, no GHCi, one library way.
 # 7.4.2 rejects a boot compiler older than 6.12.
@@ -54,13 +54,14 @@ fi
 exec /usr/bin/gcc "\${args[@]}"
 EOF
 chmod +x "$WORK/bin/gcc"
-mkdir -p "$(dirname "$HOST_GCC")"
-/bin/cp -f "$WORK/bin/gcc" "$HOST_GCC"
-chmod 755 "$HOST_GCC"
+# cGCC / settings record the bare name host-gcc. mockbuild cannot
+# create /usr/lib64/ghc-VER. The PATH export below finds this copy.
+/bin/cp -f "$WORK/bin/gcc" "$WORK/bin/host-gcc"
+chmod 755 "$WORK/bin/host-gcc"
 
 clean=$(printf '%s' "$PATH" | tr ':' '\n' | grep -v -e '\.ghcup' -e '\.cabal' -e '/ghc66-work/' -e '/ghc610-work/' -e '/ghc612-work/' -e '/ghc74-work/' | paste -sd: -)
 export PATH="$BOOT/bin:$ROOT/build/happy-1.16-prefix/bin:$ROOT/build/alex-2.1.0-prefix/bin:$WORK/bin:$clean"
-export CC="${HOST_GCC:?}"
+export CC="host-gcc"
 export CFLAGS="-std=gnu89 -fpermissive -w"
 export CPPFLAGS="-I$GMP/include"
 export LDFLAGS="-L$GMP/lib -Wl,-rpath,$GMP/lib"
@@ -121,7 +122,7 @@ fi
 
 phase "configure"
 if [ ! -f mk/config.mk ]; then
-	if ! ./configure --prefix="$PREFIX" --with-ghc="$BOOT/bin/ghc" --with-gcc="${HOST_GCC:?}" \
+	if ! ./configure --prefix="$PREFIX" --with-ghc="$BOOT/bin/ghc" --with-gcc="host-gcc" \
 		CFLAGS="-std=gnu89 -fpermissive -w" > "$WORK/logs/configure.log" 2>&1
 	then
 		fail "configure: $(errline "$WORK/logs/configure.log") $(tail -6 "$WORK/logs/configure.log" | tr '\n' ' ' | cut -c1-400)"
